@@ -259,7 +259,8 @@ def tab_overview(comp: PriceComparator):
     pos = m["competitive_position"]
     pos_colors = {
         "Significantly Cheaper": GREEN, "Slightly Cheaper": GREEN,
-        "Roughly at Parity": YELLOW, "More Expensive": RED,
+        "Roughly at Parity": YELLOW, "Competitive (Mid-Priced)": YELLOW,
+        "Mid-Priced": YELLOW, "Most Expensive": RED, "More Expensive": RED,
     }
     color = pos_colors.get(pos, "#666")
     st.markdown(

@@ -233,8 +233,13 @@ class AzureFetcher(BaseFetcher):
             "effectiveStartDate": eff_date,
         }
 
-        def _make_point(region_canonical: str, region_label: str) -> PricePoint:
+        def _make_point(region_canonical: str, region_label: str,
+                        region_raw_override: str | None = None) -> PricePoint:
             human_name = f"{product_name} - {sku_name} ({location or arm_region})"
+            # region_raw must be unique per DB row (UNIQUE key includes it).
+            # For zone-based replicated entries we use the canonical label so that
+            # each replicated copy gets a distinct key and survives INSERT OR IGNORE.
+            region_raw_val = region_raw_override if region_raw_override else (location or arm_region)
             return PricePoint(
                 provider="azure",
                 service=service,
@@ -248,7 +253,7 @@ class AzureFetcher(BaseFetcher):
                 price_original_usd=float(retail_price),
                 region_canonical=region_canonical,
                 region_label=region_label,
-                region_raw=location or arm_region,
+                region_raw=region_raw_val,
                 plan_type=plan_type,
                 currency="USD",
                 effective_date=eff_date,
@@ -258,10 +263,16 @@ class AzureFetcher(BaseFetcher):
             )
 
         # ── Zone-based circuit/direct SKUs → replicate to all covered regions ─
+        # Use "{Zone} ({Region Label})" as region_raw so each copy has a unique
+        # key in the DB (the UNIQUE constraint includes region_raw).
         if _is_zone_location(location):
             canonicals = AZURE_ZONE_TO_CANONICALS.get(location, [])
             return [
-                _make_point(c, REGION_LABELS.get(c, c))
+                _make_point(
+                    c,
+                    REGION_LABELS.get(c, c),
+                    region_raw_override=f"{location} ({REGION_LABELS.get(c, c)})",
+                )
                 for c in canonicals
             ]
 

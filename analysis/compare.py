@@ -167,7 +167,12 @@ class PriceComparator:
         df_gcp = df[
             (df["provider"] == "gcp") &
             (df["service"].isin(["dedicated_interconnect", "partner_interconnect"])) &
-            (df["sku_name"].str.contains(r"\[Circuit\]", regex=True, na=False)) &
+            # Live API SKUs are named "... [Circuit]"; reference fallback SKUs say "(Reference)".
+            # Exclude attachments, add-ons, and cross-cloud products in either case.
+            (
+                df["sku_name"].str.contains(r"\[Circuit\]", regex=True, na=False) |
+                df["sku_name"].str.contains("Reference", na=False)
+            ) &
             (~df["sku_name"].str.contains("Application Awareness", case=False, na=False)) &
             (~df["sku_name"].str.contains("Cross-Cloud", case=False, na=False))
         ]
@@ -823,21 +828,40 @@ class PriceComparator:
         aws_gb = dt_us["aws_per_gb"].values[0] if not dt_us.empty else None
         az_gb = dt_us["azure_per_gb"].values[0] if not dt_us.empty else None
 
-        # Overall position
-        if pct_vs_aws is not None and pct_vs_az is not None:
-            avg_pct = (pct_vs_aws + pct_vs_az) / 2
-            if avg_pct < -10:
-                position = "Significantly Cheaper"
-                position_color = "#34A853"
-            elif avg_pct < 0:
-                position = "Slightly Cheaper"
-                position_color = "#34A853"
-            elif avg_pct < 10:
-                position = "Roughly at Parity"
-                position_color = "#FBBC05"
+        # Overall position — rank-based so the headline is always accurate.
+        # Averaging pct vs each competitor is misleading when GCP is cheaper
+        # than one but more expensive than another.
+        def _is_valid(v) -> bool:
+            return v is not None and not (isinstance(v, float) and pd.isna(v)) and v > 0
+
+        valid = [(v, n) for v, n in [(gcp_10g, "GCP"), (aws_10g, "AWS"), (az_10g, "Azure")]
+                 if _is_valid(v)]
+        if len(valid) >= 2 and _is_valid(gcp_10g):
+            ranked = sorted(valid, key=lambda x: x[0])
+            gcp_rank = next(i + 1 for i, (v, n) in enumerate(ranked) if n == "GCP")
+            n_providers = len(ranked)
+
+            if gcp_rank == 1:
+                # GCP is cheapest — how much cheaper than next?
+                next_price = ranked[1][0]
+                pct_vs_next = (next_price - gcp_10g) / next_price * 100
+                if pct_vs_next > 10:
+                    position, position_color = "Significantly Cheaper", "#34A853"
+                elif pct_vs_next > 2:
+                    position, position_color = "Slightly Cheaper", "#34A853"
+                else:
+                    position, position_color = "Roughly at Parity", "#FBBC05"
+            elif gcp_rank == n_providers:
+                # GCP is most expensive
+                position, position_color = "Most Expensive", "#EA4335"
             else:
-                position = "More Expensive"
-                position_color = "#EA4335"
+                # GCP is in the middle — report how close it is to the cheapest
+                cheapest = ranked[0][0]
+                pct_above_cheapest = (gcp_10g - cheapest) / cheapest * 100
+                if pct_above_cheapest <= 5:
+                    position, position_color = "Competitive (Mid-Priced)", "#FBBC05"
+                else:
+                    position, position_color = "Mid-Priced", "#FBBC05"
         else:
             position, position_color = "See Details", "#666"
 
