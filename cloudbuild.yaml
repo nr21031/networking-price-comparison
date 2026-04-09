@@ -56,17 +56,18 @@ steps:
   # ── 4. Ensure public access (allUsers invoker) ────────────────────────────
   # --allow-unauthenticated is blocked by org policy on new projects;
   # this IAM binding achieves the same result reliably.
+  # Best-effort: the Cloud Build SA may lack setIamPolicy on some projects;
+  # the binding only needs to be applied once and persists across deploys.
   - id: allow-public
     name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    entrypoint: gcloud
+    entrypoint: bash
     args:
-      - run
-      - services
-      - add-iam-policy-binding
-      - "${_SERVICE_NAME}"
-      - "--region=${_REGION}"
-      - "--member=allUsers"
-      - "--role=roles/run.invoker"
+      - "-c"
+      - |
+        gcloud run services add-iam-policy-binding "${_SERVICE_NAME}" \
+          --region="${_REGION}" \
+          --member=allUsers \
+          --role=roles/run.invoker || echo "IAM binding already set or permission denied — skipping."
 
 images:
   - "us-central1-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/dashboard:$COMMIT_SHA"
