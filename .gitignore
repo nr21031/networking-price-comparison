@@ -1,0 +1,51 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.spec
+.Python
+pip-log.txt
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+venv/
+env/
+.venv/
+ENV/
+
+# ── Environment & secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+# Keep settings.yaml but NEVER commit actual API keys — use env vars instead
+# The api_key field in config/settings.yaml must remain empty ("") in the repo.
+
+# ── Database & generated data ─────────────────────────────────────────────────
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# ── Report output ─────────────────────────────────────────────────────────────
+output/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Streamlit ─────────────────────────────────────────────────────────────────
+.streamlit/secrets.toml
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+.dockerignore

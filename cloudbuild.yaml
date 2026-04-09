@@ -1,0 +1,63 @@
+# Cloud Build CI/CD pipeline
+# Triggered on every push to the 'main' branch.
+# Builds the Docker image, pushes to Artifact Registry, deploys to Cloud Run.
+#
+# Required substitutions (set in the Cloud Build trigger):
+#   _REGION        GCP region for Cloud Run (e.g. us-central1)
+#   _SERVICE_NAME  Cloud Run service name
+#   _GCS_BUCKET    GCS bucket for DB persistence
+#   _AR_REPO       Artifact Registry repo name (e.g. networking-prices)
+
+substitutions:
+  _REGION:       "us-central1"
+  _SERVICE_NAME: "networking-price-dashboard"
+  _GCS_BUCKET:   "testinggcpforwork-networking-prices"
+  _AR_REPO:      "networking-prices"
+
+steps:
+  # ── 1. Build Docker image ─────────────────────────────────────────────────
+  - id: build
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      - build
+      - "--tag=us-central1-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/dashboard:$COMMIT_SHA"
+      - "--tag=us-central1-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/dashboard:latest"
+      - "--cache-from=us-central1-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/dashboard:latest"
+      - "."
+
+  # ── 2. Push to Artifact Registry ──────────────────────────────────────────
+  - id: push
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      - push
+      - "--all-tags"
+      - "us-central1-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/dashboard"
+
+  # ── 3. Deploy to Cloud Run ────────────────────────────────────────────────
+  - id: deploy
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - "${_SERVICE_NAME}"
+      - "--image=us-central1-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/dashboard:$COMMIT_SHA"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--allow-unauthenticated"
+      - "--memory=1Gi"
+      - "--cpu=1"
+      - "--timeout=300"
+      - "--concurrency=10"
+      - "--min-instances=0"
+      - "--max-instances=3"
+      - "--set-env-vars=GCS_BUCKET=${_GCS_BUCKET}"
+      - "--set-secrets=GCP_API_KEY=networking-gcp-api-key:latest"
+
+images:
+  - "us-central1-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/dashboard:$COMMIT_SHA"
+  - "us-central1-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/dashboard:latest"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: "E2_HIGHCPU_8"

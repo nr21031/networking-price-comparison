@@ -1,0 +1,16 @@
+# Files to exclude from Cloud Build uploads (keeps the build context lean)
+.git
+.gitignore
+.github/
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+data/
+output/
+*.db
+*.sqlite
+.env
+.DS_Store
+Thumbs.db

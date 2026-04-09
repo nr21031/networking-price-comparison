@@ -1,0 +1,137 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Networking Price Comparison — Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── GCP ──────────────────────────────────────────────────────────────────────
+# Free API key: https://console.cloud.google.com/apis/credentials
+# Enable: Cloud Billing API → https://console.cloud.google.com/apis/library/cloudbilling.googleapis.com
+gcp:
+  api_key: ""              # Leave blank here — set GCP_API_KEY env var or use Cloud Run secret
+  service_filter:       # We search for any service whose name contains these strings
+    - "Cloud Interconnect"
+    - "Compute Engine"  # Interconnect SKUs sometimes appear here
+  sku_keywords:         # Filter SKUs whose description contains any of these (case-insensitive)
+    - "dedicated interconnect"
+    - "partner interconnect"
+    - "network interconnect egress"
+    - "interconnect attachment"
+  use_reference_fallback: true   # Use hardcoded reference prices if API key is absent
+
+# ── AWS ──────────────────────────────────────────────────────────────────────
+# No authentication required.
+aws:
+  price_list_base: "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDirectConnect/current"
+  regions:
+    - us-east-1       # US East (N. Virginia)
+    - us-west-2       # US West (Oregon)
+    - eu-west-1       # Europe (Ireland)
+    - ap-northeast-1  # Asia Pacific (Tokyo)
+    - ap-southeast-2  # Asia Pacific (Sydney)
+    - sa-east-1       # South America (São Paulo)
+
+# ── Azure ─────────────────────────────────────────────────────────────────────
+# No authentication required.
+azure:
+  retail_prices_base: "https://prices.azure.com/api/retail/prices"
+  services:
+    - "ExpressRoute"
+  price_types:
+    - "Consumption"
+
+# ── Region Normalization ──────────────────────────────────────────────────────
+# Maps provider-specific region identifiers to a canonical logical region.
+region_mapping:
+  us_east:
+    label: "US East"
+    gcp_regions: ["us-east4", "us-east1", "us-east5"]
+    aws_regions: ["us-east-1", "us-east-2", "US East (N. Virginia)", "US East (Ohio)"]
+    azure_zones: ["Zone 1"]
+    azure_regions: ["eastus", "eastus2"]
+  us_west:
+    label: "US West"
+    gcp_regions: ["us-west1", "us-west2", "us-west3", "us-west4"]
+    aws_regions: ["us-west-1", "us-west-2", "US West (Oregon)", "US West (N. California)"]
+    azure_zones: ["Zone 1"]
+    azure_regions: ["westus", "westus2", "westus3"]
+  us_central:
+    label: "US Central"
+    gcp_regions: ["us-central1"]
+    aws_regions: ["us-east-2", "US East (Ohio)"]
+    azure_zones: ["Zone 1"]
+    azure_regions: ["centralus", "northcentralus", "southcentralus"]
+  europe_west:
+    label: "Europe West"
+    gcp_regions: ["europe-west1", "europe-west2", "europe-west3", "europe-west4", "europe-west6"]
+    aws_regions: ["eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1",
+                  "Europe (Ireland)", "Europe (Frankfurt)", "Europe (London)", "Europe (Paris)"]
+    azure_zones: ["Zone 2"]
+    azure_regions: ["westeurope", "northeurope", "uksouth", "ukwest", "francecentral", "germanywestcentral"]
+  asia_pacific:
+    label: "Asia Pacific"
+    gcp_regions: ["asia-east1", "asia-east2", "asia-northeast1", "asia-northeast2",
+                  "asia-southeast1", "asia-southeast2"]
+    aws_regions: ["ap-northeast-1", "ap-northeast-2", "ap-southeast-1", "ap-east-1",
+                  "Asia Pacific (Tokyo)", "Asia Pacific (Seoul)", "Asia Pacific (Singapore)",
+                  "Asia Pacific (Hong Kong)"]
+    azure_zones: ["Zone 3"]
+    azure_regions: ["eastasia", "southeastasia", "japaneast", "japanwest", "koreacentral"]
+  australia:
+    label: "Australia"
+    gcp_regions: ["australia-southeast1", "australia-southeast2"]
+    aws_regions: ["ap-southeast-2", "ap-southeast-4", "Asia Pacific (Sydney)", "Asia Pacific (Melbourne)"]
+    azure_zones: ["Zone 4"]
+    azure_regions: ["australiaeast", "australiasoutheast", "australiacentral"]
+  south_america:
+    label: "South America"
+    gcp_regions: ["southamerica-east1", "southamerica-west1"]
+    aws_regions: ["sa-east-1", "South America (Sao Paulo)"]
+    azure_zones: ["Zone 4"]
+    azure_regions: ["brazilsouth", "brazilsoutheast"]
+
+# ── Analysis ──────────────────────────────────────────────────────────────────
+analysis:
+  # Port speeds to include in comparisons (Gbps)
+  port_speeds_gbps: [1, 10, 100]
+  # Hours per month used for hourly → monthly conversion
+  hours_per_month: 730
+  # Scenario for TCO analysis: port_speed_gbps + monthly_data_transfer_tb
+  tco_scenarios:
+    - label: "SMB"
+      port_speed_gbps: 1
+      monthly_data_tb: 1
+    - label: "Mid-Market"
+      port_speed_gbps: 10
+      monthly_data_tb: 10
+    - label: "Enterprise"
+      port_speed_gbps: 10
+      monthly_data_tb: 50
+    - label: "Large Enterprise"
+      port_speed_gbps: 100
+      monthly_data_tb: 200
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+notifications:
+  # Email — uses standard SMTP
+  email:
+    enabled: false
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    smtp_user: ""          # Or set env: SMTP_USER
+    smtp_password: ""      # Or set env: SMTP_PASSWORD
+    from_address: ""
+    to_addresses: []
+  # Slack webhook
+  slack:
+    enabled: false
+    webhook_url: ""        # Or set env: SLACK_WEBHOOK_URL
+  # Generic HTTP webhook (e.g. PagerDuty, Teams, custom)
+  webhook:
+    enabled: false
+    url: ""                # Or set env: WEBHOOK_URL
+    headers: {}
+  # Thresholds that trigger a notification
+  thresholds:
+    price_change_pct: 1.0        # Alert if price changes by >= 1%
+    new_sku: true                # Alert on any new SKU
+    removed_sku: true            # Alert on any removed SKU
+    new_region: true             # Alert on new region availability
