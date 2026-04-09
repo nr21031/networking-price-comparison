@@ -147,25 +147,29 @@ Every push to `main` triggers an automatic build + deploy via Cloud Build. To en
 
 ## Notifications
 
-Configure price change alerts in `config/settings.yaml`:
+Configure price change alerts via environment variables (keep credentials out of the repo):
+
+| Env var | Purpose |
+|---------|---------|
+| `SMTP_USER` | Gmail / Workspace address used to send alerts |
+| `SMTP_PASSWORD` | Gmail app password ([create one here](https://myaccount.google.com/apppasswords)) |
+| `NOTIFICATION_TO_EMAIL` | Comma-separated recipient list — stored in Secret Manager, never committed |
+| `SLACK_WEBHOOK_URL` | Slack incoming webhook URL |
+
+Enable the channel in `config/settings.yaml` (no addresses needed there):
 
 ```yaml
 notifications:
   email:
-    enabled: true
-    smtp_host: "smtp.gmail.com"
-    smtp_port: 587
-    smtp_user: "you@gmail.com"
-    smtp_password: "app-password"
-    to_addresses: ["team@example.com"]
-  slack:
-    enabled: true
-    webhook_url: "https://hooks.slack.com/..."
+    enabled: true          # turn on the channel
+    to_addresses: []       # leave blank — set NOTIFICATION_TO_EMAIL env var instead
   thresholds:
-    price_change_pct: 1.0   # alert on ≥1% price change
+    price_change_pct: 1.0  # alert on ≥1% price change
     new_sku: true
     removed_sku: true
 ```
+
+On Cloud Run, recipient addresses are injected from Secret Manager at runtime and never appear in source control.
 
 ---
 
@@ -198,4 +202,4 @@ notifications:
 
 ## License
 
-Internal use — GCP Networking Pricing & Packaging team.
+Internal use only.

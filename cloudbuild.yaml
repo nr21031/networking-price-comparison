@@ -51,7 +51,7 @@ steps:
       - "--min-instances=0"
       - "--max-instances=3"
       - "--set-env-vars=GCS_BUCKET=${_GCS_BUCKET}"
-      - "--set-secrets=GCP_API_KEY=networking-gcp-api-key:latest"
+      - "--set-secrets=GCP_API_KEY=networking-gcp-api-key:latest,NOTIFICATION_TO_EMAIL=notification-to-email:latest"
 
   # ── 4. Ensure public access (allUsers invoker) ────────────────────────────
   # --allow-unauthenticated is blocked by org policy on new projects;

@@ -116,7 +116,12 @@ class Notifier:
         user = cfg.get("smtp_user") or os.environ.get("SMTP_USER", "")
         password = cfg.get("smtp_password") or os.environ.get("SMTP_PASSWORD", "")
         from_addr = cfg.get("from_address") or user
-        to_addrs = cfg.get("to_addresses", [])
+        to_addrs = list(cfg.get("to_addresses") or [])
+        # NOTIFICATION_TO_EMAIL env var keeps recipient addresses out of the repo.
+        # Accepts a comma-separated list, e.g. "a@example.com,b@example.com".
+        env_to = os.environ.get("NOTIFICATION_TO_EMAIL", "")
+        if env_to:
+            to_addrs += [a.strip() for a in env_to.split(",") if a.strip()]
 
         if not user or not password or not to_addrs:
             print("  [Notify] Email: missing credentials or recipients, skipping.")

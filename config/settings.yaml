@@ -113,13 +113,13 @@ analysis:
 notifications:
   # Email — uses standard SMTP
   email:
-    enabled: false
+    enabled: true
     smtp_host: "smtp.gmail.com"
     smtp_port: 587
-    smtp_user: ""          # Or set env: SMTP_USER
-    smtp_password: ""      # Or set env: SMTP_PASSWORD
+    smtp_user: ""          # Set env: SMTP_USER
+    smtp_password: ""      # Set env: SMTP_PASSWORD  (Gmail app password)
     from_address: ""
-    to_addresses: []
+    to_addresses: []       # Set env: NOTIFICATION_TO_EMAIL — kept in Secret Manager
   # Slack webhook
   slack:
     enabled: false
