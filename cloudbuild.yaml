@@ -44,7 +44,6 @@ steps:
       - "--image=us-central1-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/dashboard:$COMMIT_SHA"
       - "--region=${_REGION}"
       - "--platform=managed"
-      - "--allow-unauthenticated"
       - "--memory=1Gi"
       - "--cpu=1"
       - "--timeout=300"
@@ -53,6 +52,21 @@ steps:
       - "--max-instances=3"
       - "--set-env-vars=GCS_BUCKET=${_GCS_BUCKET}"
       - "--set-secrets=GCP_API_KEY=networking-gcp-api-key:latest"
+
+  # ── 4. Ensure public access (allUsers invoker) ────────────────────────────
+  # --allow-unauthenticated is blocked by org policy on new projects;
+  # this IAM binding achieves the same result reliably.
+  - id: allow-public
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - add-iam-policy-binding
+      - "${_SERVICE_NAME}"
+      - "--region=${_REGION}"
+      - "--member=allUsers"
+      - "--role=roles/run.invoker"
 
 images:
   - "us-central1-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/dashboard:$COMMIT_SHA"
