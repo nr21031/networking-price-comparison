@@ -39,9 +39,10 @@ st.set_page_config(
 )
 
 # ── Colour palette ────────────────────────────────────────────────────────────
-GCP_COLOR = "#4285F4"
-AWS_COLOR = "#FF9900"
-AZ_COLOR = "#008AD7"
+GCP_COLOR    = "#4285F4"   # Google Blue
+AWS_COLOR    = "#FF9900"   # Amazon Orange
+AZ_COLOR     = "#00BCF2"   # Azure Cyan  — clearly distinct from Google Blue
+AZ_UNL_COLOR = "#0078D4"   # Azure Deep Blue — for Unlimited tier
 GREEN = "#34A853"
 RED = "#D93025"
 YELLOW = "#F9AB00"
@@ -533,7 +534,7 @@ def tab_tco(comp: PriceComparator, config: dict):
         ("GCP",                     GCP_COLOR, "gcp_total"),
         ("AWS",                     AWS_COLOR, "aws_total"),
         ("Azure (metered/circuit)", AZ_COLOR,  "azure_metered_per_circuit"),
-        ("Azure (unlimited/circuit)", "#0078D4", "azure_unlimited_per_circuit"),
+        ("Azure (unlimited/circuit)", AZ_UNL_COLOR, "azure_unlimited_per_circuit"),
     ]
     for name, color, col in chart_series:
         if col in tco_df.columns and tco_df[col].notna().any():
@@ -676,32 +677,93 @@ def tab_regional(comp: PriceComparator):
         chart_speed = sel_speeds[0]
 
     df_chart = rb_df[rb_df["port_speed_gbps"] == chart_speed].copy()
+    spd_label = f"{chart_speed:.0f} Gbps" if chart_speed >= 1 else f"{chart_speed*1000:.0f} Mbps"
+
     if not df_chart.empty:
-        fig = go.Figure()
-        bar_series = [
+        regions_ordered = df_chart["region_label"].tolist()
+
+        def _add_region_bands(fig, n_regions):
+            """Alternate light grey bands behind every other region group."""
+            for i in range(n_regions):
+                if i % 2 == 0:
+                    fig.add_shape(
+                        type="rect",
+                        xref="x", yref="paper",
+                        x0=i - 0.5, x1=i + 0.5,
+                        y0=0, y1=1,
+                        fillcolor="#F8F9FA",
+                        line_width=0,
+                        layer="below",
+                    )
+            return fig
+
+        # ── Chart 1: Port fee comparison (GCP / AWS / Azure Metered) ──────────
+        # Azure Unlimited is ~15-30× higher than port fees so it gets its own chart
+        # to avoid collapsing the port-fee bars to near zero.
+        fig1 = go.Figure()
+        port_series = [
             ("GCP",                     GCP_COLOR, "gcp_monthly"),
             ("AWS",                     AWS_COLOR, "aws_monthly"),
             ("Azure Metered (per-ckt)", AZ_COLOR,  "azure_metered_per_circuit"),
-            ("Azure Unlimited (per-ckt)", "#0078D4", "azure_unlimited_per_circuit"),
         ]
-        for name, color, col in bar_series:
+        for name, color, col in port_series:
             if col in df_chart.columns and df_chart[col].notna().any():
-                fig.add_trace(go.Bar(
+                fig1.add_trace(go.Bar(
                     name=name, x=df_chart["region_label"], y=df_chart[col],
                     marker_color=color, marker_line_width=0,
                     hovertemplate=f"<b>{name}</b><br>${{y:,.0f}}/mo<extra></extra>",
                 ))
-        spd_label = f"{chart_speed:.0f} Gbps" if chart_speed >= 1 else f"{chart_speed*1000:.0f} Mbps"
-        fig.update_layout(
-            title=f"Monthly Port Fee by Region — {spd_label} (Azure metered = per-circuit; Unlimited = Standard tier, per-circuit)",
+        fig1 = _add_region_bands(fig1, len(regions_ordered))
+        fig1.update_layout(
+            title=f"Port Fee by Region — {spd_label}  (Azure = Metered, per-circuit normalised)",
             barmode="group", plot_bgcolor="white", paper_bgcolor="white",
             font_family="Google Sans, Segoe UI, sans-serif",
-            title_font_size=13, legend=dict(orientation="h", y=-0.25),
-            yaxis=dict(title="$/month", gridcolor="#F1F3F4"),
-            xaxis=dict(gridcolor="rgba(0,0,0,0)"),
-            margin=dict(t=50, b=100),
+            title_font_size=13,
+            legend=dict(orientation="h", y=-0.28),
+            yaxis=dict(title="$/month", gridcolor="#E8EAED"),
+            xaxis=dict(gridcolor="rgba(0,0,0,0)", tickangle=-30),
+            bargroupgap=0.15,
+            margin=dict(t=50, b=110),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig1, use_container_width=True)
+
+        # ── Chart 2: Azure Unlimited (Standard) vs GCP / AWS — separate scale ─
+        has_unl = (
+            "azure_unlimited_per_circuit" in df_chart.columns and
+            df_chart["azure_unlimited_per_circuit"].notna().any()
+        )
+        if has_unl:
+            st.caption(
+                "ℹ️ **Azure Unlimited** (Standard tier) is shown separately — "
+                "it bundles port + all egress into a single flat fee (~10-25× the "
+                "metered port fee alone), so it can't share a y-axis with port fees."
+            )
+            fig2 = go.Figure()
+            unl_series = [
+                ("GCP Port Fee",                  GCP_COLOR,    "gcp_monthly"),
+                ("AWS Port Fee",                  AWS_COLOR,    "aws_monthly"),
+                ("Azure Unlimited (per-ckt)",     AZ_UNL_COLOR, "azure_unlimited_per_circuit"),
+            ]
+            for name, color, col in unl_series:
+                if col in df_chart.columns and df_chart[col].notna().any():
+                    fig2.add_trace(go.Bar(
+                        name=name, x=df_chart["region_label"], y=df_chart[col],
+                        marker_color=color, marker_line_width=0,
+                        hovertemplate=f"<b>{name}</b><br>${{y:,.0f}}/mo<extra></extra>",
+                    ))
+            fig2 = _add_region_bands(fig2, len(regions_ordered))
+            fig2.update_layout(
+                title=f"Azure Unlimited (Standard) vs Port Fees — {spd_label}  (Azure = per-circuit; includes all egress)",
+                barmode="group", plot_bgcolor="white", paper_bgcolor="white",
+                font_family="Google Sans, Segoe UI, sans-serif",
+                title_font_size=13,
+                legend=dict(orientation="h", y=-0.28),
+                yaxis=dict(title="$/month", gridcolor="#E8EAED"),
+                xaxis=dict(gridcolor="rgba(0,0,0,0)", tickangle=-30),
+                bargroupgap=0.15,
+                margin=dict(t=50, b=110),
+            )
+            st.plotly_chart(fig2, use_container_width=True)
 
     # ── Full table ─────────────────────────────────────────────────────────────
     st.markdown("**Full Price Table**")
