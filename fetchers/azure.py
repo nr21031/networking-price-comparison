@@ -200,11 +200,25 @@ class AzureFetcher(BaseFetcher):
         port_speed_gbps = _parse_speed_gbps(sku_name) or _parse_speed_gbps(product_name)
 
         # ── Plan / service type ──────────────────────────────────────────────
-        sku_lc = sku_name.lower()
-        prod_lc = product_name.lower()
+        sku_lc      = sku_name.lower()
+        prod_lc     = product_name.lower()
+        meter_lc    = meter_name.lower()
 
+        # Azure unlimited circuits come in three tiers (Local / Standard / Premium).
+        # Encode the tier into plan_type so analysis can pick the right one.
+        # meterName always starts with the tier, e.g.:
+        #   "Standard Unlimited Data 10 Gbps Circuit"
+        #   "Premium Unlimited Data 10 Gbps Circuit"
+        #   "Local Unlimited Data 10 Gbps Circuit"
         if "unlimited" in sku_lc:
-            plan_type = "unlimited"
+            if meter_lc.startswith("local"):
+                plan_type = "unlimited_local"
+            elif meter_lc.startswith("premium"):
+                plan_type = "unlimited_premium"
+            else:
+                # Standard is the default/most-common tier; also catch any
+                # meter names that don't start with a recognised tier keyword.
+                plan_type = "unlimited_standard"
         elif "metered" in sku_lc:
             plan_type = "metered"
         elif "gateway" in sku_lc or "gateway" in prod_lc:

@@ -693,7 +693,7 @@ def tab_regional(comp: PriceComparator):
                 ))
         spd_label = f"{chart_speed:.0f} Gbps" if chart_speed >= 1 else f"{chart_speed*1000:.0f} Mbps"
         fig.update_layout(
-            title=f"Monthly Port Fee by Region — {spd_label} (Azure = per-circuit normalised)",
+            title=f"Monthly Port Fee by Region — {spd_label} (Azure metered = per-circuit; Unlimited = Standard tier, per-circuit)",
             barmode="group", plot_bgcolor="white", paper_bgcolor="white",
             font_family="Google Sans, Segoe UI, sans-serif",
             title_font_size=13, legend=dict(orientation="h", y=-0.25),

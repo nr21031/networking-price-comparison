@@ -50,7 +50,10 @@ AWS_HOSTED_PLAN = "hosted"
 
 # For Azure, metered is the fairest comparison for port fees (includes data allowance)
 AZURE_METERED = "metered"
-AZURE_UNLIMITED = "unlimited"
+# Unlimited circuits come in Local / Standard / Premium tiers.
+# Standard is the primary comparison point (full backbone, not metro-only like Local).
+AZURE_UNLIMITED = "unlimited_standard"
+AZURE_UNLIMITED_ALL = ["unlimited_local", "unlimited_standard", "unlimited_premium"]
 AZURE_DIRECT = "expressroute_direct"
 
 # ── Redundancy / value normalisation ─────────────────────────────────────────
@@ -347,7 +350,7 @@ class PriceComparator:
             az_unl = self.df[
                 (self.df["provider"] == "azure") &
                 (self.df["service"].isin(["expressroute", "expressroute_direct"])) &
-                (self.df["plan_type"] == "unlimited") &
+                (self.df["plan_type"] == AZURE_UNLIMITED) &
                 (self.df["price_monthly_usd"] > 0)
             ]
             if not az_unl.empty:
@@ -559,7 +562,8 @@ class PriceComparator:
         })
 
         # ── 3. Partner / Hosted (Unlimited) ───────────────────────────────────
-        az_unl = df[(df["provider"] == "azure") & (df["service"] == "expressroute") & (df["plan_type"] == "unlimited")]
+        # Use Standard tier as primary comparison — Local is metro-only (not full backbone).
+        az_unl = df[(df["provider"] == "azure") & (df["service"] == "expressroute") & (df["plan_type"] == AZURE_UNLIMITED)]
         az_unl_price = _min_price(az_unl)
         az_unl_per_ckt = round(az_unl_price / AZURE_CIRCUITS_PER_PURCHASE, 0) if az_unl_price else None
 
@@ -680,11 +684,11 @@ class PriceComparator:
             (df["price_monthly_usd"] > 0)
         ]
 
-        # ── Azure unlimited ────────────────────────────────────────────────────
+        # ── Azure unlimited (Standard tier — full backbone, not metro-only Local) ──
         df_az_unl = df[
             (df["provider"] == "azure") &
             (df["service"] == "expressroute") &
-            (df["plan_type"] == "unlimited") &
+            (df["plan_type"] == AZURE_UNLIMITED) &
             (df["price_monthly_usd"] > 0)
         ]
 
